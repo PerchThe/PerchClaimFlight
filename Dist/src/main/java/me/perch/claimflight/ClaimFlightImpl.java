@@ -1,14 +1,10 @@
-package com.trophonix.claimfly;
+package me.perch.claimflight;
 
-import com.trophonix.claimfly.api.ClaimChecker;
-import com.trophonix.claimfly.api.ClaimFly;
-import com.trophonix.claimfly.checker.*;
-import com.trophonix.claimfly.legacyps.LegacyPSChecker;
-import com.trophonix.claimfly.legacywg.LegacyWGChecker;
-import com.trophonix.claimfly.listeners.EssentialsListener;
-import com.trophonix.claimfly.listeners.FlyCommandListener;
-import com.trophonix.claimfly.newps.NewPSChecker;
-import com.trophonix.newwg.NewWGChecker;
+import me.perch.claimflight.api.ClaimChecker;
+import me.perch.claimflight.api.ClaimFlight;
+import me.perch.claimflight.checker.GPChecker;
+import me.perch.claimflight.listeners.EssentialsListener;
+import me.perch.claimflight.listeners.FlyCommandListener;
 import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -20,23 +16,24 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 @Getter
-public class ClaimFlyImpl extends JavaPlugin implements ClaimFly, Listener {
+public class ClaimFlightImpl extends JavaPlugin implements ClaimFlight, Listener {
 
   private boolean permissionRequired;
-
   private boolean otherTrustedClaims;
   private boolean adminClaims;
   private boolean freeWorld;
-
   private boolean drop;
   private boolean gamemodeBypass;
   private boolean onFlyCommand;
@@ -46,6 +43,9 @@ public class ClaimFlyImpl extends JavaPlugin implements ClaimFly, Listener {
 
   private List<ClaimChecker> checkers = new ArrayList<>();
   private Listener flyListener;
+
+  // Track players who just lost flight to prevent fall damage
+  private final Set<UUID> justLostFlight = new HashSet<>();
 
   @Override
   public void onEnable() {
@@ -59,44 +59,8 @@ public class ClaimFlyImpl extends JavaPlugin implements ClaimFly, Listener {
       checkers.add(new GPChecker(this));
     }
 
-    if (Bukkit.getPluginManager().isPluginEnabled("Residence")) {
-      getLogger().info("Hooking into Residence.");
-      checkers.add(new ResidenceChecker(this));
-    }
-
-    if (Bukkit.getPluginManager().isPluginEnabled("PlayerPlot")) {
-      getLogger().info("Hooking into PlayerPlot.");
-      checkers.add(new PlayerPlotChecker(this));
-    }
-
-    if (Bukkit.getPluginManager().isPluginEnabled("PlotSquared")) {
-      try {
-        Class.forName("com.intellectualcrafters.plot.object.Location");
-        getLogger().info("Hooking into Legacy Plotsquared.");
-        checkers.add(new LegacyPSChecker(this));
-      } catch (Exception ignored) {
-        getLogger().info("Hooking into Plotsquared.");
-        checkers.add(new NewPSChecker(this));
-      }
-    }
-
-    if (Bukkit.getPluginManager().isPluginEnabled("WorldGuard")) {
-      Plugin worldGuard = Bukkit.getPluginManager().getPlugin("WorldGuard");
-      String version = worldGuard.getDescription().getVersion();
-      // if legacy, assume one of the latest versions.
-      if (version.startsWith("6.1") || version.startsWith("6.2")) {
-        getLogger().info("Hooking into Legacy Worldgaurd.");
-        checkers.add(new LegacyWGChecker(this));
-      }
-      // else, assume new worldguard
-      else {
-        getLogger().info("Hooking into Worldguard.");
-        checkers.add(new NewWGChecker(this));
-      }
-    }
-
     if (checkers.isEmpty()) {
-      getLogger().warning("No claim plugin found. Supported: WorldGuard, GriefPrevention, Residence, PlotSquared, PlayerPlot.");
+      getLogger().warning("No claim plugin found. Supported: GriefPrevention");
       getServer().getPluginManager().disablePlugin(this);
     }
   }
@@ -125,7 +89,8 @@ public class ClaimFlyImpl extends JavaPlugin implements ClaimFly, Listener {
     }
   }
 
-  @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+  @Override
+  public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
     if (args.length == 1 && args[0].equalsIgnoreCase("rl")) {
       reloadConfig();
       load();
@@ -133,14 +98,14 @@ public class ClaimFlyImpl extends JavaPlugin implements ClaimFly, Listener {
       return true;
     }
 
-    sender.sendMessage(ChatColor.BLUE + "ClaimFly by Trophonix...");
-    sender.sendMessage(ChatColor.AQUA + "/claimfly rl " + ChatColor.WHITE + "Reload the config.");
+    sender.sendMessage(ChatColor.BLUE + "ClaimFlight by Trophonix...");
+    sender.sendMessage(ChatColor.AQUA + "/ClaimFlight rl " + ChatColor.WHITE + "Reload the config.");
     return true;
   }
 
   public boolean canBypass(Player player) {
     if ((gamemodeBypass && canFly(player.getGameMode()))) return true;
-    if (player.hasPermission("claimfly.bypass")) return true;
+    if (player.hasPermission("ClaimFlight.bypass")) return true;
     return false;
   }
 
@@ -150,32 +115,46 @@ public class ClaimFlyImpl extends JavaPlugin implements ClaimFly, Listener {
     Player player = event.getPlayer();
     if (!player.isFlying()) return;
     if (canBypass(player)) return;
-    if (event.getFrom().getBlockX() == event.getTo().getBlockX() && event.getFrom().getBlockZ() == event.getTo().getBlockZ() && event.getFrom().getBlockY() == event.getTo().getBlockY()) {
+    if (event.getFrom().getBlockX() == event.getTo().getBlockX() &&
+            event.getFrom().getBlockZ() == event.getTo().getBlockZ() &&
+            event.getFrom().getBlockY() == event.getTo().getBlockY()) {
       return;
     }
 
-    if (!isAllowedToFly(event.getTo(), event.getPlayer())) {
-      if (drop) {
-        player.setAllowFlight(false);
-        player.setFlying(false);
-        player.setFallDistance(0 - player.getLocation().getBlockY());
-      } else event.setCancelled(true);
+    // Only block movement and show message, do NOT disable flight here
+    if (!isAllowedToFly(event.getTo(), player)) {
+      event.setCancelled(true);
       player.sendMessage(configFlightDisabled);
     }
   }
 
   @EventHandler
   public void onFlyChange(PlayerToggleFlightEvent event) {
+    Player player = event.getPlayer();
     if (!event.isFlying()) return;
-    if (canBypass(event.getPlayer())) return;
-    if (!isAllowedToFly(event.getPlayer())) {
+    if (canBypass(player)) return;
+    if (!isAllowedToFly(player)) {
       event.setCancelled(true);
-      event.getPlayer().sendMessage(configNotAllowed);
+      player.setAllowFlight(false);
+      player.setFlying(false);
+      player.setFallDistance(0);
+      justLostFlight.add(player.getUniqueId());
+      player.sendMessage(configNotAllowed);
+    }
+  }
+
+  @EventHandler
+  public void onFallDamage(EntityDamageEvent event) {
+    if (event.getEntity() instanceof Player) {
+      Player player = (Player) event.getEntity();
+      if (event.getCause() == EntityDamageEvent.DamageCause.FALL && justLostFlight.remove(player.getUniqueId())) {
+        event.setCancelled(true);
+      }
     }
   }
 
   public boolean isAllowedToFly(Location to, Player player) {
-    if (permissionRequired && !player.hasPermission("claimfly.fly")) return false;
+    if (permissionRequired && !player.hasPermission("ClaimFlight.fly")) return false;
     for (int i = 0; i < checkers.size(); i++) {
       ClaimChecker checker = checkers.get(i);
       if (otherTrustedClaims) {
@@ -199,4 +178,19 @@ public class ClaimFlyImpl extends JavaPlugin implements ClaimFly, Listener {
     return gamemode == GameMode.CREATIVE || gamemode == GameMode.SPECTATOR;
   }
 
+  // --- Implement required interface methods ---
+  @Override
+  public boolean isAdminClaims() {
+    return adminClaims;
+  }
+
+  @Override
+  public boolean isFreeWorld() {
+    return freeWorld;
+  }
+
+  // --- Explicit getter for configNotAllowed, in case Lombok is not working ---
+  public String getConfigNotAllowed() {
+    return configNotAllowed;
+  }
 }

@@ -4,17 +4,13 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.trophonix</groupId>
-    <artifactId>ClaimFly</artifactId>
+    <groupId>me.perch</groupId>
+    <artifactId>PerchClaimFlight</artifactId>
     <packaging>pom</packaging>
-    <version>1.2.6</version>
+    <version>1.0.0</version>
     <modules>
-        <module>LegacyWGChecker</module>
         <module>API</module>
-        <module>NewWGChecker</module>
         <module>Dist</module>
-        <module>LegacyPSChecker</module>
-        <module>NewPSChecker</module>
     </modules>
 
     <repositories>
@@ -31,8 +27,8 @@
             <url>https://ci.ender.zone/plugin/repository/everything/</url>
         </repository>
         <repository>
-            <id>sk89q-repo</id>
-            <url>http://maven.sk89q.com/repo/</url>
+            <id>paper-repo</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
     </repositories>
 

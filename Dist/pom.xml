@@ -3,64 +3,25 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>ClaimFly</artifactId>
-        <groupId>com.trophonix</groupId>
-        <version>1.2.6</version>
+        <artifactId>PerchClaimFlight</artifactId>
+        <groupId>me.perch</groupId>
+        <version>1.0.0</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>ClaimFly.Dist</artifactId>
+    <artifactId>ClaimFlight.Dist</artifactId>
 
     <dependencies>
         <dependency>
-            <groupId>com.trophonix</groupId>
-            <artifactId>ClaimFly.API</artifactId>
+            <groupId>me.perch</groupId>
+            <artifactId>API</artifactId>
             <version>${project.version}</version>
             <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.trophonix</groupId>
-            <artifactId>ClaimFly.LegacyWGChecker</artifactId>
-            <version>${project.version}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.trophonix</groupId>
-            <artifactId>ClaimFly.NewWGChecker</artifactId>
-            <version>${project.version}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.trophonix</groupId>
-            <artifactId>ClaimFly.LegacyPSChecker</artifactId>
-            <version>${project.version}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.trophonix</groupId>
-            <artifactId>ClaimFly.NewPSChecker</artifactId>
-            <version>${project.version}</version>
-            <scope>compile</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>net.zrips.residence</groupId>
-            <artifactId>Residence</artifactId>
-            <version>4.8.6.4</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/../lib/Residence.jar</systemPath>
-        </dependency>
-        <dependency>
-            <groupId>com.eclipsekingdom.playerplot</groupId>
-            <artifactId>PlayerPlot</artifactId>
-            <version>1.14_1.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/../lib/PlayerPlot.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>com.github.TechFortress</groupId>
             <artifactId>GriefPrevention</artifactId>
-            <version>16.9.alpha</version>
+            <version>16.18.4</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -73,7 +34,7 @@
 
     <build>
         <sourceDirectory>${basedir}/src/main/java/</sourceDirectory>
-        <finalName>ClaimFly-${project.version}</finalName>
+        <finalName>PerchClaimFlight-${project.version}</finalName>
         <resources>
             <resource>
                 <targetPath>.</targetPath>

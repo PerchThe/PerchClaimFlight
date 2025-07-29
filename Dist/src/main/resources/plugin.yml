@@ -1,21 +1,21 @@
-name: "ClaimFly"
+name: "PerchClaimFlight"
 version: "${project.version}"
-author: "Trophonix"
-main: "com.trophonix.claimfly.ClaimFlyImpl"
+author: "KayaLambrex"
+main: "me.perch.claimflight.ClaimFlightImpl"
 api-version: "1.13"
-softdepend: [Essentials, GriefPrevention, Residence, PlotSquared, PlayerPlot, WorldGuard]
+softdepend: [Essentials, GriefPrevention]
 commands:
-  claimfly:
+  ClaimFlight:
     description: "Admin config commands"
-    permission: "claimfly.admin"
+    permission: "ClaimFlight.admin"
 permissions:
-  claimfly.admin:
-    description: "ClaimFly admin command"
-  claimfly.bypass:
+  ClaimFlight.admin:
+    description: "ClaimFlight admin command"
+  ClaimFlight.bypass:
     description: "Bypass flight restrictions"
-  claimfly.fly:
+  ClaimFlight.fly:
     description: "Allows flight in claims if permission is required"
   gpfly.admin:
-    children: [claimfly.admin]
+    children: [ClaimFlight.admin]
   gpfly.bypass:
-    children: [claimfly.bypass]
+    children: [ClaimFlight.bypass]

@@ -1,4 +1,4 @@
-package com.trophonix.claimfly.api;
+package me.perch.claimflight.api;
 
 import org.bukkit.Location;
 import org.bukkit.entity.Player;

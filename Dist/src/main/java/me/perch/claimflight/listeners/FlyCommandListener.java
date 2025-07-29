@@ -1,6 +1,6 @@
-package com.trophonix.claimfly.listeners;
+package me.perch.claimflight.listeners;
 
-import com.trophonix.claimfly.ClaimFlyImpl;
+import me.perch.claimflight.ClaimFlightImpl;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -8,9 +8,9 @@ import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 
 public class FlyCommandListener implements Listener {
 
-  private ClaimFlyImpl pl;
+  private ClaimFlightImpl pl;
 
-  public FlyCommandListener(ClaimFlyImpl pl) {
+  public FlyCommandListener(ClaimFlightImpl pl) {
     this.pl = pl;
     pl.getServer().getPluginManager().registerEvents(this, pl);
   }

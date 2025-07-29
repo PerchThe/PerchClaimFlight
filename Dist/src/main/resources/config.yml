@@ -1,7 +1,7 @@
 #
 # Claim Fly by Trophonix
 # - - - - - - - - -
-# permissionRequired: true/false - Whether to require "claimfly.fly" to fly in claims
+# permissionRequired: true/false - Whether to require "ClaimFlight.fly" to fly in claims
 # otherTrustedClaims: true/false - Whether to allow flight in trusted claims not owned by the player.
 # adminClaims: true/false - Whether to allow flight in admin claims (GriefPrevention)
 # freeWorld: true/false - Whether to allow flight in the unclaimed world.
