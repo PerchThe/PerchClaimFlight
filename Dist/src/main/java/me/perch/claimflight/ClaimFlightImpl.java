@@ -18,14 +18,11 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Getter
 public class ClaimFlightImpl extends JavaPlugin implements ClaimFlight, Listener {
@@ -41,11 +38,15 @@ public class ClaimFlightImpl extends JavaPlugin implements ClaimFlight, Listener
   private String configNotAllowed;
   private String configFlightDisabled;
 
-  private List<ClaimChecker> checkers = new ArrayList<>();
+  private final List<ClaimChecker> checkers = new ArrayList<>();
   private Listener flyListener;
 
   // Track players who just lost flight to prevent fall damage
   private final Set<UUID> justLostFlight = new HashSet<>();
+
+  // Cooldown for the "flight disabled here" bump message
+  private static final long DISABLED_MSG_COOLDOWN_MS = 5000L;
+  private final Map<UUID, Long> lastDisabledMsgAt = new HashMap<>();
 
   @Override
   public void onEnable() {
@@ -105,40 +106,75 @@ public class ClaimFlightImpl extends JavaPlugin implements ClaimFlight, Listener
 
   public boolean canBypass(Player player) {
     if ((gamemodeBypass && canFly(player.getGameMode()))) return true;
-    if (player.hasPermission("ClaimFlight.bypass")) return true;
-    return false;
+    return player.hasPermission("ClaimFlight.bypass");
   }
 
   @EventHandler
   public void onMove(PlayerMoveEvent event) {
     if (event.getTo() == null) return;
     Player player = event.getPlayer();
-    if (!player.isFlying()) return;
+
+    // PRO FIX: We now check two things:
+    // 1. Are they flying? (Active flight)
+    // 2. Do they have AllowFlight enabled? (Essentials /fly enabled but walking)
+    // If neither is true, we ignore them to save performance.
+    if (!player.isFlying() && !player.getAllowFlight()) return;
+
     if (canBypass(player)) return;
+
+    // Standard optimization check
     if (event.getFrom().getBlockX() == event.getTo().getBlockX() &&
             event.getFrom().getBlockZ() == event.getTo().getBlockZ() &&
             event.getFrom().getBlockY() == event.getTo().getBlockY()) {
       return;
     }
 
-    // Only block movement and show message, do NOT disable flight here
+    UUID id = player.getUniqueId();
     if (!isAllowedToFly(event.getTo(), player)) {
-      event.setCancelled(true);
-      player.sendMessage(configFlightDisabled);
+
+      // LOGIC SPLIT: Handle flyers and walkers differently
+      if (player.isFlying()) {
+        // If they are actively flying, Rubberband them back (Standard behavior)
+        event.setCancelled(true);
+
+        // Cooldown the bump message
+        long now = System.currentTimeMillis();
+        Long last = lastDisabledMsgAt.get(id);
+        if (last == null || (now - last) >= DISABLED_MSG_COOLDOWN_MS) {
+          player.sendMessage(configFlightDisabled);
+          lastDisabledMsgAt.put(id, now);
+        }
+      } else {
+        // If they are WALKING but have AllowFlight (Essentials), simply remove the ability.
+        // This prevents them from jumping off a cliff later and trying to fly.
+        player.setAllowFlight(false);
+        player.sendMessage(configNotAllowed);
+      }
+
+    } else {
+      // Moved back into allowed area — reset cooldown so next boundary bump can message again
+      lastDisabledMsgAt.remove(id);
     }
   }
 
   @EventHandler
   public void onFlyChange(PlayerToggleFlightEvent event) {
     Player player = event.getPlayer();
+
+    // If they are trying to STOP flying, let them.
     if (!event.isFlying()) return;
+
     if (canBypass(player)) return;
+
     if (!isAllowedToFly(player)) {
       event.setCancelled(true);
       player.setAllowFlight(false);
       player.setFlying(false);
-      player.setFallDistance(0);
-      justLostFlight.add(player.getUniqueId());
+
+      // PRO FIX: Removed setFallDistance(0).
+      // If a player tries to fly illegally, they should fall naturally.
+      // We do NOT add them to justLostFlight here.
+
       player.sendMessage(configNotAllowed);
     }
   }
@@ -147,10 +183,18 @@ public class ClaimFlightImpl extends JavaPlugin implements ClaimFlight, Listener
   public void onFallDamage(EntityDamageEvent event) {
     if (event.getEntity() instanceof Player) {
       Player player = (Player) event.getEntity();
-      if (event.getCause() == EntityDamageEvent.DamageCause.FALL && justLostFlight.remove(player.getUniqueId())) {
+      if (event.getCause() == EntityDamageEvent.DamageCause.FALL &&
+              justLostFlight.remove(player.getUniqueId())) {
         event.setCancelled(true);
       }
     }
+  }
+
+  @EventHandler
+  public void onQuit(PlayerQuitEvent event) {
+    UUID id = event.getPlayer().getUniqueId();
+    lastDisabledMsgAt.remove(id);
+    justLostFlight.remove(id);
   }
 
   public boolean isAllowedToFly(Location to, Player player) {
@@ -158,13 +202,9 @@ public class ClaimFlightImpl extends JavaPlugin implements ClaimFlight, Listener
     for (int i = 0; i < checkers.size(); i++) {
       ClaimChecker checker = checkers.get(i);
       if (otherTrustedClaims) {
-        if (checker.isInTrustedClaim(player, to)) {
-          return true;
-        }
+        if (checker.isInTrustedClaim(player, to)) return true;
       } else {
-        if (checker.isInOwnClaim(player, to)) {
-          return true;
-        }
+        if (checker.isInOwnClaim(player, to)) return true;
       }
     }
     return isFreeWorld();
@@ -189,7 +229,6 @@ public class ClaimFlightImpl extends JavaPlugin implements ClaimFlight, Listener
     return freeWorld;
   }
 
-  // --- Explicit getter for configNotAllowed, in case Lombok is not working ---
   public String getConfigNotAllowed() {
     return configNotAllowed;
   }
